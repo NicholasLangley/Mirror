@@ -33,6 +33,7 @@ public class PlayerCameraController : MonoBehaviour
     {
         characterFollowTransform = followPoint;
         transform.position = characterFollowTransform.position;
+        transform.rotation = characterFollowTransform.rotation;
     }
     public void updateCameraAim(Vector2 rotationVector)
     {

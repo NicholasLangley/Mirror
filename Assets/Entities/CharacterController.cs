@@ -5,6 +5,7 @@ public struct MovementInputs
 {
     public Vector2 moveAxis;
     public Quaternion aimRotation;
+    public bool jumpPressed;
 }
 
 public class CharacterController : MonoBehaviour, ICharacterController
@@ -15,21 +16,30 @@ public class CharacterController : MonoBehaviour, ICharacterController
     [SerializeField]
     public float _moveSpeed, _gravity;
 
+    //jumping variables
+    [SerializeField]
+    public float _jumpStrength, _coyoteJumpWindow;
+    bool _currentlyJumping;
+    float _coyoteJumpTimer;
+
     //current movement and aim directions
     Vector3 _movementInputVector;
     Vector3 _aimInputVector;
+    bool _jumpPressed;
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         _characterMotor.CharacterController = this;
+
+        _coyoteJumpTimer = 0;
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+        if (!_characterMotor.GroundingStatus.IsStableOnGround) { _coyoteJumpTimer += Time.deltaTime; }
     }
 
     public void SetInputs(MovementInputs inputs)
@@ -50,7 +60,35 @@ public class CharacterController : MonoBehaviour, ICharacterController
         // Move and look inputs
         _movementInputVector = cameraPlanarRotation * _movementInputVector;
         _aimInputVector = cameraPlanarDirection;
+
+        _jumpPressed = inputs.jumpPressed;
     }
+
+    #region jumping/falling
+    //adds jump strength to upward velocity
+    void HandleJump(ref Vector3 currentVelocity)
+    {
+        if (!_currentlyJumping && (_characterMotor.GroundingStatus.IsStableOnGround || _coyoteJumpTimer <= _coyoteJumpWindow))
+        {
+            //remove current vertical velocity and add jump strength
+            currentVelocity += _characterMotor.CharacterUp * _jumpStrength - Vector3.Project(currentVelocity, _characterMotor.CharacterUp);
+            _characterMotor.ForceUnground(0.1f);
+            _currentlyJumping = true;
+        }
+    }
+
+    void OnLanding()
+    {
+        _coyoteJumpTimer = 0;
+        _currentlyJumping = false;
+    }
+
+    void OnLeavingGround()
+    {
+
+    }
+
+    #endregion
 
     #region ICharacterController
     public void BeforeCharacterUpdate(float deltaTime)
@@ -69,9 +107,10 @@ public class CharacterController : MonoBehaviour, ICharacterController
     {
         Vector3 targetMovementVelocity;
         //if grounded
-        if (_characterMotor.GroundingStatus.IsStableOnGround)
+        if (_characterMotor.GroundingStatus.IsStableOnGround && !_currentlyJumping)
         {
-            // Calculate target velocity
+            //This code reorients the input directions based on the normal vector of the ground being stood on
+            //TODO does this slow chars down, allowing for desync?
             Vector3 inputRight = Vector3.Cross(_movementInputVector, _characterMotor.CharacterUp);
             Vector3 reorientedInput = Vector3.Cross(_characterMotor.GroundingStatus.GroundNormal, inputRight).normalized * _movementInputVector.magnitude;
             targetMovementVelocity = reorientedInput * _moveSpeed;
@@ -80,9 +119,16 @@ public class CharacterController : MonoBehaviour, ICharacterController
         else
         {
             targetMovementVelocity = _movementInputVector * _moveSpeed;
-            currentVelocity = targetMovementVelocity;
+            //need to preserve upwards momentum
+            //get projection of velocity onto plane of gravity
+            Vector3 projectedVelocity = Vector3.ProjectOnPlane(targetMovementVelocity, -_characterMotor.CharacterUp);
+            //then get the difference in velocitites on that plane so you can add the diff to the current velocity without overwriting the vertical velocity
+            Vector3 projectedDeltaVelocity = Vector3.ProjectOnPlane(projectedVelocity - currentVelocity, -_characterMotor.CharacterUp);
+            currentVelocity += projectedDeltaVelocity;
             currentVelocity -= _characterMotor.CharacterUp * _gravity * deltaTime;
         }
+
+        if (_jumpPressed) { HandleJump(ref currentVelocity); }
     }
 
     public void AfterCharacterUpdate(float deltaTime)
@@ -96,9 +142,17 @@ public class CharacterController : MonoBehaviour, ICharacterController
         return true;
     }
 
+    // This is called when the motor's ground probing detects a ground hit
     public void OnGroundHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint, ref HitStabilityReport hitStabilityReport)
     {
-        // This is called when the motor's ground probing detects a ground hit
+        if (_characterMotor.GroundingStatus.IsStableOnGround && !_characterMotor.LastGroundingStatus.IsStableOnGround)
+        {
+            OnLanding();
+        }
+        else if (!_characterMotor.GroundingStatus.IsStableOnGround && _characterMotor.LastGroundingStatus.IsStableOnGround)
+        {
+            OnLeavingGround();
+        }
     }
 
     public void OnMovementHit(Collider hitCollider, Vector3 hitNormal, Vector3 hitPoint, ref HitStabilityReport hitStabilityReport)

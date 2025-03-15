@@ -7,14 +7,19 @@ public class PlayerController : MonoBehaviour
     [SerializeField]
     PlayerInputHandler playerInputHandler;
 
-    [Header("Camera")]
+    [Header("RED")]
     [SerializeField]
-    PlayerCameraController playerCameraController;
-    public Transform cameraFollowTransform;
+    CharacterController redCharacterController;
+    [SerializeField]
+    PlayerCameraController redPlayerCameraController;
+    public Transform redCameraFollowTransform;
 
-    [Header("Character")]
+    [Header("BLUE")]
     [SerializeField]
-    CharacterController characterController;
+    CharacterController blueCharacterController;
+    [SerializeField]
+    PlayerCameraController bluePlayerCameraController;
+    public Transform blueCameraFollowTransform;
 
     private Vector3 _lookInputVector = Vector3.zero;
 
@@ -22,8 +27,9 @@ public class PlayerController : MonoBehaviour
     {
         Cursor.lockState = CursorLockMode.Locked;
 
-        // Tell camera to follow transform
-        playerCameraController.SetFollowTransform(cameraFollowTransform);
+        // Tell cameras to follow transform
+        redPlayerCameraController.SetFollowTransform(redCameraFollowTransform);
+        bluePlayerCameraController.SetFollowTransform(blueCameraFollowTransform);
 
     }
 
@@ -34,12 +40,21 @@ public class PlayerController : MonoBehaviour
 
     void HandlePlayerInput()
     {
-        playerCameraController.updateCameraAim(playerInputHandler.aimInput);
+        //update cameras
+        redPlayerCameraController.updateCameraAim(playerInputHandler.aimInput);
+        bluePlayerCameraController.updateCameraAim(playerInputHandler.aimInput);
 
-        MovementInputs movementInputs = new MovementInputs();
-        movementInputs.moveAxis = playerInputHandler.moveInput;
-        movementInputs.aimRotation = playerCameraController.transform.rotation;
+        //create input structs to update player controllers
+        MovementInputs redMovementInputs = new MovementInputs();
+        redMovementInputs.moveAxis = playerInputHandler.moveInput;
+        redMovementInputs.aimRotation = redPlayerCameraController.transform.rotation;
+        redMovementInputs.jumpPressed = playerInputHandler.jumpInput;
+        redCharacterController.SetInputs(redMovementInputs);
 
-        characterController.SetInputs(movementInputs);
+        MovementInputs blueMovementInputs = new MovementInputs();
+        blueMovementInputs.moveAxis = playerInputHandler.moveInput;
+        blueMovementInputs.aimRotation = bluePlayerCameraController.transform.rotation;
+        blueMovementInputs.jumpPressed = playerInputHandler.jumpInput;
+        blueCharacterController.SetInputs(blueMovementInputs);
     }
 }
