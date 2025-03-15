@@ -4,6 +4,10 @@ using UnityEngine;
 public class PlayerCameraController : MonoBehaviour
 {
     [SerializeField]
+    public Camera cam;
+
+    [Header("Camera Settings")]
+    [SerializeField]
     float maxVerticalLookAngle = 89f;
     float verticalLookAngle;
 
@@ -11,8 +15,8 @@ public class PlayerCameraController : MonoBehaviour
 
     public bool invertMouseX, invertMouseY;
 
-    [SerializeField]
-    Camera cam;
+    Transform characterFollowTransform;
+    
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -20,12 +24,20 @@ public class PlayerCameraController : MonoBehaviour
         verticalLookAngle = 0f;   
     }
 
-    public void updateCamera(Vector3 position, Vector2 rotationVector)
+    private void Update()
+    {
+        transform.position = characterFollowTransform.position;
+    }
+
+    public void SetFollowTransform(Transform followPoint)
+    {
+        characterFollowTransform = followPoint;
+        transform.position = characterFollowTransform.position;
+    }
+    public void updateCameraAim(Vector2 rotationVector)
     {
         if (invertMouseX) { rotationVector.x *= -1; }
         if (invertMouseY) { rotationVector.y *= -1; }
-
-        transform.position = position;
 
         transform.Rotate(transform.up, rotationVector.x * mouseSensitivityX);
 
